@@ -74,3 +74,15 @@ In investigating potential people counter models, I tried each of the following 
   - I converted the model to an Intermediate Representation with the following arguments...
   - The model was insufficient for the app because...
   - I tried to improve the model for the app by...
+
+
+## Error:
+1. If got:
+    ```bash
+      IPADDRESS = socket.gethostbyname(HOSTNAME)
+    socket.gaierror: [Errno 8] nodename nor servname provided, or not known
+    ```
+    Then run:
+    ```bash
+    $ echo 127.0.0.1 $HOST >> /etc/hosts
+    ```

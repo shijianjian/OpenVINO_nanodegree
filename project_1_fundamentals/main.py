@@ -26,6 +26,8 @@ import time
 import socket
 import json
 import cv2
+import datetime
+import numpy as np
 
 import logging as log
 import paho.mqtt.client as mqtt
@@ -35,9 +37,9 @@ from inference import Network
 from helpers import preprocessing, ssd_boxes_counting, draw_boxes
 
 # MQTT server environment variables
-# HOSTNAME = socket.gethostname()
-# IPADDRESS = socket.gethostbyname(HOSTNAME)
-# MQTT_HOST = IPADDRESS
+HOSTNAME = socket.gethostname()
+IPADDRESS = socket.gethostbyname(HOSTNAME)
+MQTT_HOST = IPADDRESS
 MQTT_PORT = 3001
 MQTT_KEEPALIVE_INTERVAL = 60
 CPU_EXTENSION = None
@@ -72,7 +74,8 @@ def build_argparser():
 
 def connect_mqtt():
     ### TODO: Connect to the MQTT client ###
-    client = None
+    client = mqtt.Client()
+    client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE_INTERVAL)
 
     return client
 
@@ -102,9 +105,11 @@ def infer_on_stream(args, client):
         mode = 'video_mode'
     cap = cv2.VideoCapture(args.input)
     cap.open(args.input)
-
+    width = int(cap.get(3))
+    height = int(cap.get(4))
     ### Loop until stream is over ###
     while cap.isOpened():
+        start_time = datetime.datetime.now()
         ### Read from the video capture ###
         flag, frame = cap.read()
         if not flag:
@@ -114,6 +119,7 @@ def infer_on_stream(args, client):
 
         ### Start asynchronous inference for specified request ###
         infer_network.exec_net(frame)
+        frame = np.transpose(frame[0], (1, 2, 0))
 
         ### Wait for the result ###
         if infer_network.wait() == 0:
@@ -121,25 +127,26 @@ def infer_on_stream(args, client):
             result = infer_network.get_output()
             ### Extract any desired stats from the results ###
             count = ssd_boxes_counting(result, prob_threshold, target_class_index=1)
-            print(count)
             frame = draw_boxes(frame, result, prob_threshold, width, height, target_class_index=1)
             ### TODO: Calculate and send relevant information on ###
             ### current_count, total_count and duration to the MQTT server ###
             ### Topic "person": keys of "count" and "total" ###
             ### Topic "person/duration": key of "duration" ###
-            
+            client.publish('person', json.dumps({"count": count, "total": count}))
+            time_diff = datetime.datetime.now() - start_time
+            client.publish('person/duration', json.dumps({"duration": time_diff.microseconds}))
 
         ### TODO: Send the frame to the FFMPEG server ###
-
+        # sys.stdout.buffer.write(frame)  
+        # sys.stdout.flush()
         ### TODO: Write an output image if `single_image_mode` ###
         if mode == 'single_image_mode':
-            width = int(cap.get(3))
-            height = int(cap.get(4))
             img = draw_boxes(frame, result, prob_threshold, width, height, target_class_index=1)
             cv2.imwrite('./output.jpg', img)
 
     cap.release()
     cv2.destroyAllWindows()
+    client.disconnect()
 
 def main():
     """

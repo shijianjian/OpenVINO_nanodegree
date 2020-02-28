@@ -26,5 +26,5 @@ def draw_boxes(frame, result, prob_threshold, width, height, target_class_index)
             ymin = int(box[4] * height)
             xmax = int(box[5] * width)
             ymax = int(box[6] * height)
-            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), prob_threshold, 1)
+            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0), 1)
     return frame
