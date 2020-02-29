@@ -34,7 +34,7 @@ import paho.mqtt.client as mqtt
 
 from argparse import ArgumentParser
 from inference import Network
-from helpers import preprocessing, ssd_boxes_counting, draw_boxes
+from helpers import preprocessing, ssd_boxes_counting, total_new, draw_boxes
 
 # MQTT server environment variables
 HOSTNAME = socket.gethostname()
@@ -107,19 +107,20 @@ def infer_on_stream(args, client):
     cap.open(args.input)
     width = int(cap.get(3))
     height = int(cap.get(4))
+    prev_result  = None
+    total = 0
     ### Loop until stream is over ###
     while cap.isOpened():
-        start_time = datetime.datetime.now()
         ### Read from the video capture ###
+        start_time = datetime.datetime.now()
         flag, frame = cap.read()
         if not flag:
             break
         ### Pre-process the image as needed ###
-        frame = preprocessing(frame, (net_input_shape[3], net_input_shape[2]))
+        _frame = preprocessing(frame, (net_input_shape[3], net_input_shape[2]))
 
         ### Start asynchronous inference for specified request ###
-        infer_network.exec_net(frame)
-        frame = np.transpose(frame[0], (1, 2, 0))
+        infer_network.exec_net(_frame)
 
         ### Wait for the result ###
         if infer_network.wait() == 0:
@@ -128,18 +129,22 @@ def infer_on_stream(args, client):
             ### Extract any desired stats from the results ###
             count = ssd_boxes_counting(result, prob_threshold, target_class_index=1)
             frame = draw_boxes(frame, result, prob_threshold, width, height, target_class_index=1)
+            if prev_result is not None and count > 0:
+                total += total_new(result, prev_result, prob_threshold, target_class_index=1)
+            prev_result = result
             ### TODO: Calculate and send relevant information on ###
             ### current_count, total_count and duration to the MQTT server ###
             ### Topic "person": keys of "count" and "total" ###
             ### Topic "person/duration": key of "duration" ###
-            client.publish('person', json.dumps({"count": count, "total": count}))
+            client.publish('person', json.dumps({"count": count, "total": total}))
             time_diff = datetime.datetime.now() - start_time
             client.publish('person/duration', json.dumps({"duration": time_diff.microseconds}))
 
-        ### TODO: Send the frame to the FFMPEG server ###
-        # sys.stdout.buffer.write(frame)  
-        # sys.stdout.flush()
-        ### TODO: Write an output image if `single_image_mode` ###
+        ### Send the frame to the FFMPEG server ###
+        out  = np.uint8(frame)
+        sys.stdout.buffer.write(out)  
+        sys.stdout.flush()
+        ###  Write an output image if `single_image_mode` ###
         if mode == 'single_image_mode':
             img = draw_boxes(frame, result, prob_threshold, width, height, target_class_index=1)
             cv2.imwrite('./output.jpg', img)
