@@ -12,6 +12,7 @@ According to [here](https://docs.openvinotoolkit.org/latest/_docs_MO_DG_prepare_
   - pipeline.config
 
 Then using:
+For OpenVINO 2020R1:
 ```bash
 export MOD_OPT=/opt/intel/openvino/deployment_tools/model_optimizer
 export MOD_PTH=./models/ssd_mobilenet_v2_coco_2018_03_29
@@ -19,6 +20,15 @@ $MOD_OPT/mo_tf.py \
   --input_model=$MOD_PTH/frozen_inference_graph.pb \
   --transformations_config $MOD_OPT/extensions/front/tf/ssd_v2_support.json \
   --tensorflow_object_detection_api_pipeline_config $MOD_PTH/pipeline.config
+```
+For OpenVINO 2019R3:
+```bash
+export MOD_OPT=/opt/intel/openvino/deployment_tools/model_optimizer
+export MOD_PTH=./models/ssd_mobilenet_v2_coco_2018_03_29
+$MOD_OPT/mo.py \
+  --input_model=$MOD_PTH/frozen_inference_graph.pb \
+  --tensorflow_object_detection_api_pipeline_config $MOD_PTH/pipeline.config \
+  --tensorflow_use_custom_operations_config $MOD_OPT/extensions/front/tf/ssd_v2_support.json
 ```
 
 ## Comparing Model Performance
