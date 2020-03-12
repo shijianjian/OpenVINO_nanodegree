@@ -42,7 +42,6 @@ IPADDRESS = socket.gethostbyname(HOSTNAME)
 MQTT_HOST = IPADDRESS
 MQTT_PORT = 3001
 MQTT_KEEPALIVE_INTERVAL = 60
-CPU_EXTENSION = None
 
 
 def build_argparser():
@@ -95,7 +94,7 @@ def infer_on_stream(args, client):
     prob_threshold = args.prob_threshold
 
     ### Load the model through `infer_network` ###
-    infer_network.load_model(args.model, args.device, CPU_EXTENSION)
+    infer_network.load_model(args.model, args.device, args.cpu_extension)
     net_input_shape = infer_network.get_input_shape()
 
     ### Handle the input stream ###
@@ -138,7 +137,7 @@ def infer_on_stream(args, client):
             ### Topic "person/duration": key of "duration" ###
             client.publish('person', json.dumps({"count": count, "total": total}))
             time_diff = datetime.datetime.now() - start_time
-            client.publish('person/duration', json.dumps({"duration": time_diff.microseconds}))
+            client.publish('person/duration', json.dumps({"duration": time_diff.microseconds * 1e-6}))
 
         ### Send the frame to the FFMPEG server ###
         out  = np.uint8(frame)
