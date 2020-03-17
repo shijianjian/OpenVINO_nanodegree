@@ -66,7 +66,7 @@ class Network:
             print("Check whether extensions are available to add to IECore.")
             exit(1)
         # Load the IENetwork into the plugin
-        self.exec_network = self.plugin.load_network(self.network, device)
+        self.exec_network = self.plugin.load_network(self.network, device, num_requests=200)
 
         # Get the input layer
         self.input_blob = next(iter(self.network.inputs))
@@ -78,24 +78,24 @@ class Network:
         '''
         return self.network.inputs[self.input_blob].shape
 
-    def exec_net(self, image):
+    def exec_net(self, image, request_id):
         '''
         Makes an asynchronous inference request, given an input image.
         '''
         ### Start asynchronous inference
-        self.exec_network.start_async(request_id=0, inputs={self.input_blob: image})
+        self.exec_network.start_async(request_id=request_id, inputs={self.input_blob: image})
 
-    def wait(self):
+    def wait(self, request_id):
         '''
         Checks the status of the inference request.
         '''
         ### Wait for the async request to be complete
-        status = self.exec_network.requests[0].wait(-1)
+        status = self.exec_network.requests[request_id].wait(-1)
         return status
 
-    def get_output(self):
+    def get_output(self, request_id):
         '''
         Returns a list of the results for the output layer of the network.
         '''
         ### Return the outputs of the network from the output_blob
-        return self.exec_network.requests[0].outputs[self.output_blob]
+        return self.exec_network.requests[request_id].outputs[self.output_blob]
