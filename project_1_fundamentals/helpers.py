@@ -3,9 +3,20 @@ import numpy as np
 
 def preprocessing(image, shape):
     image = cv2.resize(image, shape)
+#     image = adjust_gamma(image, gamma=1.5)
     image = image.transpose((2,0,1))
     image = image.reshape(1, *image.shape)
     return image
+
+
+def adjust_gamma(image, gamma=1.0):
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255
+                      for i in np.arange(0, 256)]).astype("uint8")
+    # apply gamma correction using the lookup table
+    return cv2.LUT(image, table)
 
 
 def ssd_boxes_counting(results, prob_threshold, target_class_index):
@@ -16,27 +27,24 @@ def ssd_boxes_counting(results, prob_threshold, target_class_index):
     return count
 
 
-def total_new(result, prev_result, prob_threshold, target_class_index=1):
+def is_new(result, prev_result, prob_threshold, target_class_index=1):
     boxes = []
-    new_person = 0
     # Previous person
     for box in prev_result[0][0]:
         if box[1] == target_class_index and box[2] > prob_threshold:
             boxes.append(box[3:])
-    # If nobody appeared in previous result, count plus one
-    if len(boxes) == 0:
-        return 1
-
-    # Compare bounding boxes. If no IOU greater than 0.6, then there will be a new person
-    for box in result[0][0]:
-        if box[1] == target_class_index and box[2] > prob_threshold:
-            ious = []
-            for bbox in boxes:
-                iou = bb_intersection_over_union(bbox, box[3:])
-                ious.append(iou)
-            if np.max(ious) < 0.8:
-                new_person += 1
-    return new_person
+    # If anybody appeared in previous result, check IOU
+    if len(boxes) != 0:
+        # Compare bounding boxes. If no IOU greater than 0.6, then there will be a new person
+        for box in result[0][0]:
+            if box[1] == target_class_index and box[2] > prob_threshold:
+                ious = []
+                for bbox in boxes:
+                    iou = bb_intersection_over_union(bbox, box[3:])
+                    ious.append(iou)
+                if np.max(ious) < 0.6:
+                    return False
+    return True
 
 
 def bb_intersection_over_union(boxA, boxB):

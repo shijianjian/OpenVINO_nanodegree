@@ -34,7 +34,7 @@ import paho.mqtt.client as mqtt
 
 from argparse import ArgumentParser
 from inference import Network
-from helpers import preprocessing, ssd_boxes_counting, total_new, draw_boxes
+from helpers import preprocessing, ssd_boxes_counting, is_new, draw_boxes
 
 # MQTT server environment variables
 HOSTNAME = socket.gethostname()
@@ -108,6 +108,10 @@ def infer_on_stream(args, client):
     height = int(cap.get(4))
     prev_result  = None
     total = 0
+    counts = []
+    emit = True
+    frame_id = -1
+    epoch = 0
     ### Loop until stream is over ###
     while cap.isOpened():
         ### Read from the video capture ###
@@ -115,30 +119,53 @@ def infer_on_stream(args, client):
         flag, frame = cap.read()
         if not flag:
             break
+        frame_id += 1
+        if frame_id >= 200:
+            epoch += 1
+            frame_id = 0
         ### Pre-process the image as needed ###
         _frame = preprocessing(frame, (net_input_shape[3], net_input_shape[2]))
 
         ### Start asynchronous inference for specified request ###
-        infer_network.exec_net(_frame)
+        infer_network.exec_net(_frame, frame_id)
 
         ### Wait for the result ###
-        if infer_network.wait() == 0:
+        if infer_network.wait(frame_id) == 0:
             ### Get the results of the inference request ###
-            result = infer_network.get_output()
+            result = infer_network.get_output(frame_id)
             ### Extract any desired stats from the results ###
             count = ssd_boxes_counting(result, prob_threshold, target_class_index=1)
             frame = draw_boxes(frame, result, prob_threshold, width, height, target_class_index=1)
-            if prev_result is not None and count > 0:
-                total += total_new(result, prev_result, prob_threshold, target_class_index=1)
-            prev_result = result
+            if len(counts) > 30 and count > 0:
+                if count in counts[-30:]:
+                    total += 0
+                else:
+                    if prev_result is not None:
+                        if is_new(result, prev_result, prob_threshold):
+                            total += 1
+                            if emit:
+                                start_frame = epoch * 200 + frame_id
+                                prev_result = result
+                                emit = False
+                    else:
+                        total += 1
+                        if emit:
+                            start_frame = epoch * 200 + frame_id
+                            prev_result = result
+                            emit = False
+            elif len(counts) > 30 and count == 0:
+                if total > 0 and 1 == counts[-31] and 1 not in counts[-30:-1]:
+                    # Only emit once for each count
+                    if not emit:
+                        time_diff = (epoch * 200 + frame_id - start_frame) / 10
+                        client.publish('person/duration', json.dumps({"duration": time_diff}))
+                        emit = True
+            counts.append(count)
             ### TODO: Calculate and send relevant information on ###
             ### current_count, total_count and duration to the MQTT server ###
             ### Topic "person": keys of "count" and "total" ###
             ### Topic "person/duration": key of "duration" ###
             client.publish('person', json.dumps({"count": count, "total": total}))
-            time_diff = datetime.datetime.now() - start_time
-            client.publish('person/duration', json.dumps({"duration": time_diff.microseconds * 1e-6}))
-
         ### Send the frame to the FFMPEG server ###
         out  = np.uint8(frame)
         sys.stdout.buffer.write(out)  
