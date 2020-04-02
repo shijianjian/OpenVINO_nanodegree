@@ -14,11 +14,15 @@ class InferencePipeline(object):
         self.facial_landmark = FacialLandmarksDetection(folder_name, device=device, extensions=extensions)
 
     def predict(self, input):
-        cropped_face = self.face_detection(input)
-        left_eye, right_eye = self.facial_landmark(cropped_face)
-        head_pose_angles = self.head_pose_estimation(cropped_face)
-        direction = self.gaze_estimation(left_eye, right_eye, head_pose_angles)
-        return direction
+        try:
+            cropped_face = self.face_detection(input)
+            left_eye, right_eye = self.facial_landmark(cropped_face)
+            head_pose_angles = self.head_pose_estimation(cropped_face)
+            direction = self.gaze_estimation(left_eye, right_eye, head_pose_angles)
+            return direction
+        except:
+            print("Failed to detect eyes, skipping")
+            return (0, 0, 0)
     
     def __call__(self, input):
         return self.predict(input)

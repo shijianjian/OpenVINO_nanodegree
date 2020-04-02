@@ -2,6 +2,8 @@
 
 This project includes code to control your computer pointer by estimate where you are gazing at.
 
+![model_flow](./bin/model_flow.png)
+
 ## Project Set Up and Installation
 Project structured as follow:
 ```
@@ -35,12 +37,16 @@ Project structured as follow:
     └── landmarks-regression-retail-0009.xml
 ```
 
+Install required dependencies:
+```bash
+$ pip install -r requirements.txt
+```
+
 ## Demo
 For a quick demo:
 ```python
 $ python index.py
 ```
-
 
 ## Documentation
 If you need a more detailed control, please run:
@@ -56,15 +62,16 @@ Currently, all model used are from [Openvino 2019 R4](https://download.01.org/op
 - Head Pose Estimation [FP16](https://download.01.org/opencv/2019/open_model_zoo/R4/20200117_150000_models_bin/head-pose-estimation-adas-0001/FP16/)
 - Gase Estimation [FP16](https://download.01.org/opencv/2019/open_model_zoo/R4/20200117_150000_models_bin/gaze-estimation-adas-0002/FP16/)
 
+
 ## Benchmarks
 
-| Precision        | Loading Time           | Accuracy  |
-| ------------- |:-------------:| -----:|
-| FP32      | SLOW | High |
-| FP16     | MEDIUM      |   MEDIUM |
-| INT8 | Fast     |   Low |
+| Precision        | Loading Time           | Accuracy  | Inferencing Time | Predicted on the same image  |
+| ------------- |:-------------:| -----:|  -----|  ---- |
+| FP32      | SLOW | High | 10.9 ms ± 665 µs per loop | (0.36994722, -0.07417054, -0.84132034) |
+| FP16     | MEDIUM      |   MEDIUM | 9.99 ms ± 121 µs per loop | (0.37064737, -0.074315235, -0.8411986) |
+
 
 ## Results
 FP32 is time consuming but with the best accuracy.
-FP16 reduces the time cost along with a accuracy cost.
-INT8 is the most efficient precision but sacrifices accuracy. 
+
+FP16 reduces the time cost along with a very little (no more than 1e-4 for each axis) accuracy cost.
